@@ -15,6 +15,14 @@
       }
     },
     {
+      "name": "fetchcontent",
+      "description": "Opt-in preset for find modules that fetch dependencies using FetchContent",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_MODULE_PATH": "${sourceDir}/cmake/fetchcontent"
+      }
+    },
+    {
       "name": "vcpkg",
       "hidden": true,
       "cacheVariables": {
