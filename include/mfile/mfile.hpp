@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -10,7 +11,6 @@
 
 #include <byte_span/byte_span.hpp>
 #include <fcntl.h>
-#include <fmt/core.h>
 
 namespace mfile {
 using range3::byte_span;
@@ -152,7 +152,7 @@ inline auto open(const char* path,
                  mode_t mode = 0666) -> file_handle {
   auto fd = ::open(path, flags.flags(), mode);  // NOLINT
   if (fd == -1) {
-    throw file_error{errno, fmt::format("Failed to open file: {}", path)};
+    throw file_error{errno, std::format("Failed to open file: {}", path)};
   }
   return file_handle{weak_file_handle{fd}};
 }
