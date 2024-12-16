@@ -86,9 +86,30 @@ struct fd_deleter {
     }
   }
 };
+
+class tmpfile_deleter {
+ public:
+  using pointer = weak_file_handle;
+
+  explicit tmpfile_deleter(std::string&& name) noexcept
+      : name_{std::move(name)} {}
+
+  void operator()(weak_file_handle handle) const noexcept {
+    if (handle) {
+      unlink(name_.c_str());
+      ::close(handle.native());
+    }
+  }
+
+ private:
+  std::string name_;
+};
+
 }  // namespace detail
 
 using file_handle = std::unique_ptr<weak_file_handle, detail::fd_deleter>;
+using tmpfile_handle =
+    std::unique_ptr<weak_file_handle, detail::tmpfile_deleter>;
 
 class open_flags {
  public:
@@ -279,6 +300,17 @@ inline auto open(const char* path,
     throw file_error{errno, std::format("Failed to open file: {}", path)};
   }
   return file{file_handle{weak_file_handle{fd}}};
+}
+
+[[nodiscard]]
+inline auto make_tmpfile(std::string_view prefix) -> file<tmpfile_handle> {
+  auto template_name = std::string{prefix} + "XXXXXX";
+  auto fd = mkstemp(template_name.data());
+  if (fd == -1) {
+    throw file_error{errno, "Failed to create tmpfile"};
+  }
+  return file{tmpfile_handle{
+      weak_file_handle{fd}, detail::tmpfile_deleter{std::move(template_name)}}};
 }
 
 }  // namespace mfile

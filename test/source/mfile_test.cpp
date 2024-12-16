@@ -6,7 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <fcntl.h>
-#include <sys/stat.h>
+// #include <sys/stat.h>
 
 #include "mfile/mfile.hpp"
 
@@ -39,8 +39,9 @@ TEST_CASE("open_flags basic functionality", "[open_flags]") {
 
 // NOLINTNEXTLINE
 TEST_CASE("File basic operations", "[file]") {
-  auto file =
-      mfile::open(".", mfile::open_flags::rp().tmpfile(), S_IRUSR | S_IWUSR);
+  // auto file =
+  //     mfile::open(".", mfile::open_flags::rp().tmpfile(), S_IRUSR | S_IWUSR);
+  auto file = mfile::make_tmpfile("/tmp/mfile_test_");
 
   SECTION("write and read simple data") {
     constexpr std::string_view test_data = "Hello, World!";
