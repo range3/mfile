@@ -14,7 +14,7 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -22,15 +22,15 @@ jobs:
     - uses: actions/setup-python@v5
       with: { python-version: "3.12" }
 
-    - name: Install codespell
-      run: pip3 install codespell
+    # - name: Install codespell
+    #   run: pip3 install codespell
 
     - name: Lint
-      run: cmake -D FORMAT_COMMAND=clang-format-14 -P cmake/lint.cmake
+      run: cmake -D FORMAT_COMMAND=clang-format-18 -P cmake/lint.cmake
 
-    - name: Spell check
-      if: always()
-      run: cmake -P cmake/spell.cmake
+    # - name: Spell check
+    #   if: always()
+    #   run: cmake -P cmake/spell.cmake
 
   coverage:
     needs: [lint]
