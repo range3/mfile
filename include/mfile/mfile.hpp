@@ -11,6 +11,7 @@
 
 #include <byte_span/byte_span.hpp>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 namespace mfile {
 using range3::byte_span;
@@ -33,6 +34,8 @@ class weak_file_handle {
   int fd_{invalid_file_handle::value};
 
  public:
+  using pointer = weak_file_handle;
+
   constexpr weak_file_handle() noexcept = default;
   // NOLINTNEXTLINE
   constexpr weak_file_handle(std::nullptr_t) noexcept {}
@@ -42,6 +45,16 @@ class weak_file_handle {
   [[nodiscard]]
   constexpr explicit operator bool() const noexcept {
     return fd_ >= 0;
+  }
+
+  // smart reference pattern
+  [[nodiscard]]
+  constexpr auto operator->() noexcept -> pointer* {
+    return this;
+  }
+  [[nodiscard]]
+  constexpr auto operator->() const noexcept -> const pointer* {
+    return this;
   }
 
   [[nodiscard]]
@@ -121,6 +134,11 @@ class open_flags {
   }
 
   [[nodiscard]]
+  constexpr auto tmpfile() noexcept -> open_flags& {
+    return set(O_TMPFILE);
+  }
+
+  [[nodiscard]]
   constexpr auto set(int flag) noexcept -> open_flags& {
     flags_ |= static_cast<std::uint32_t>(flag);
     return *this;
@@ -146,15 +164,121 @@ class open_flags {
   std::uint32_t flags_;
 };
 
+template <typename T>
+concept weak_file_handle_like = requires(T& h) {
+  { h.native() } -> std::same_as<int>;
+  { static_cast<bool>(h) } -> std::same_as<bool>;
+};
+
+template <typename T>
+concept managed_file_handle_like = requires(T& h) {
+  { h.get() } -> std::same_as<weak_file_handle>;
+  { static_cast<bool>(h) } -> std::same_as<bool>;
+};
+
+template <typename T>
+concept file_handle_like =
+    weak_file_handle_like<T> || managed_file_handle_like<T>;
+
+template <typename T>
+concept copyable_handle = std::is_copy_constructible_v<T>;
+
+template <file_handle_like Handle>
+class file {
+ public:
+  using handle_type = Handle;
+
+  constexpr file() noexcept = default;
+  constexpr file(const file&) = delete;
+  constexpr auto operator=(const file&) -> file& = delete;
+  constexpr file(file&&) noexcept = default;
+  constexpr auto operator=(file&&) noexcept -> file& = default;
+  constexpr ~file() noexcept = default;
+
+  constexpr file(const file&)
+    requires copyable_handle<Handle>
+  = default;
+  constexpr auto operator=(const file&) -> file&
+    requires copyable_handle<Handle>
+  = default;
+
+  constexpr explicit file(handle_type handle) noexcept
+      : handle_{std::move(handle)} {}
+
+  [[nodiscard]]
+  auto read_once(byte_view data) const -> std::size_t {
+    auto result = ::read(native(), data.data(), data.size());
+    while (result == -1 && errno == EINTR) {
+      result = ::read(native(), data.data(), data.size());
+    }
+
+    if (result == -1) {
+      throw file_error{errno, "read failed"};
+    }
+    return static_cast<std::size_t>(result);
+  }
+
+  [[nodiscard]]
+  auto write_once(cbyte_view data) const -> std::size_t {
+    auto result = ::write(native(), data.data(), data.size());
+    while (result == -1 && errno == EINTR) {
+      result = ::write(native(), data.data(), data.size());
+    }
+
+    if (result == -1) {
+      throw file_error{errno, "write failed"};
+    }
+    return static_cast<std::size_t>(result);
+  }
+
+  auto seek(std::int64_t offset, int whence) const -> std::uint64_t {
+    auto result = ::lseek(native(), offset, whence);
+    if (result == -1) {
+      throw file_error{errno, "seek failed"};
+    }
+    return static_cast<std::uint64_t>(result);
+  }
+
+  [[nodiscard]]
+  auto stat() const -> struct stat {
+    struct stat st {};
+    if (::fstat(native(), &st) == -1) {
+      throw file_error{errno, "stat failed"};
+    }
+    return st;
+  }
+
+  [[nodiscard]]
+  auto size() const -> std::uint64_t {
+    return static_cast<std::uint64_t>(stat().st_size);
+  }
+
+ private:
+  handle_type handle_{};
+
+  [[nodiscard]]
+  constexpr auto native() const noexcept -> int {
+    if constexpr (weak_file_handle_like<Handle>) {
+      return handle_.native();
+    } else {
+      return handle_->native();
+    }
+  }
+};
+
+// deduction guides
+template <file_handle_like H>
+file(H) -> file<H>;
+
 [[nodiscard]]
 inline auto open(const char* path,
                  open_flags flags,
-                 mode_t mode = 0666) -> file_handle {
+                 mode_t mode = 0666) -> file<file_handle> {
   auto fd = ::open(path, flags.flags(), mode);  // NOLINT
   if (fd == -1) {
     throw file_error{errno, std::format("Failed to open file: {}", path)};
   }
-  return file_handle{weak_file_handle{fd}};
+  return file{file_handle{weak_file_handle{fd}}};
 }
 
 }  // namespace mfile
