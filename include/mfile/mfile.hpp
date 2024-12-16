@@ -274,6 +274,11 @@ class file {
     return static_cast<std::uint64_t>(stat().st_size);
   }
 
+  constexpr void swap(file& other) noexcept {
+    using std::swap;
+    swap(handle_, other.handle_);
+  }
+
  private:
   handle_type handle_{};
 
@@ -290,6 +295,12 @@ class file {
 // deduction guides
 template <file_handle_like H>
 file(H) -> file<H>;
+
+// non-member functions
+template <file_handle_like Handle>
+constexpr void swap(file<Handle>& lhs, file<Handle>& rhs) noexcept {
+  lhs.swap(rhs);
+}
 
 [[nodiscard]]
 inline auto open(const char* path,
