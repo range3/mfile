@@ -3,15 +3,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <byte_span/byte_span.hpp>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 namespace mfile {
 using range3::byte_span;
@@ -324,12 +327,124 @@ class file {
   constexpr explicit file(handle_type handle) noexcept
       : handle_{std::move(handle)} {}
 
+  // std::size_t read(byte_view data) const;
+  // std::size_t write(cbyte_view data) const;
+
+  [[nodiscard]]
+  auto read(byte_view data) const -> std::size_t {
+    std::size_t bytes_read{};
+
+    while (bytes_read < data.size()) {
+      auto result =
+          read_once(data.subspan(bytes_read, data.size() - bytes_read));
+
+      // EOF
+      if (result == 0) {
+        break;
+      }
+
+      bytes_read += result;
+    }
+
+    return bytes_read;
+  }
+
+  [[nodiscard]]
+  auto write(cbyte_view data) const -> std::size_t {
+    std::size_t bytes_written{};
+
+    while (bytes_written < data.size()) {
+      auto result =
+          write_once(data.subspan(bytes_written, data.size() - bytes_written));
+
+      // No space left on device
+      if (result == 0) {
+        break;
+      }
+
+      bytes_written += result;
+    }
+
+    return bytes_written;
+  }
+
+  void read_exact(byte_view data) const {
+    auto bytes_read = read(data);
+    if (bytes_read != data.size()) {
+      throw end_of_file_error{bytes_read,
+                              "Failed to read exact amount of bytes"};
+    }
+  }
+
+  void write_exact(cbyte_view data) const {
+    auto bytes_written = write(data);
+    if (bytes_written != data.size()) {
+      throw insufficient_space_error{bytes_written,
+                                     "Failed to write exact amount of bytes"};
+    }
+  }
+
+  [[nodiscard]]
+  auto read(std::size_t size) const -> std::vector<std::byte> {
+    std::vector<std::byte> buffer(size);
+    buffer.resize(read(buffer));
+    buffer.shrink_to_fit();
+    return buffer;
+  }
+
+  [[nodiscard]]
+  auto read() const -> std::vector<std::byte> {
+    constexpr std::size_t init_buffer_size = 4096;
+    constexpr auto resize_factor_limit =
+        (std::numeric_limits<std::size_t>::max)() / 3 * 2;
+    auto buffer = std::vector<std::byte>();
+
+    auto file_size = size();
+    if (!file_size) {
+      buffer.resize(init_buffer_size);
+    } else {
+      auto current_pos = tell();
+      if (current_pos == file_size) {
+        return buffer;
+      }
+      auto remaining_size = file_size - current_pos;
+      if (remaining_size > (std::numeric_limits<std::size_t>::max)()) {
+        throw std::length_error{"File size too large"};
+      }
+      buffer.resize(static_cast<std::size_t>(remaining_size));
+    }
+
+    std::size_t bytes_read = 0;
+    while (true) {
+      auto read_span = byte_view{buffer}.subspan(bytes_read);
+      auto res = read(read_span);
+      bytes_read += res;
+
+      // EOF
+      if (res < read_span.size()) {
+        buffer.resize(bytes_read);
+        break;
+      }
+
+      std::size_t new_size{};
+      if (buffer.size() < resize_factor_limit) {
+        new_size = buffer.size() / 2 * 3;
+      } else {
+        new_size = std::numeric_limits<std::size_t>::max();
+      }
+      buffer.resize(new_size);
+    }
+
+    buffer.shrink_to_fit();
+    return buffer;
+  }
+
   [[nodiscard]]
   auto read_once(byte_view data) const -> std::size_t {
-    auto result = ::read(native(), data.data(), data.size());
-    while (result == -1 && errno == EINTR) {
+    ssize_t result = -1;
+    do {  // NOLINT
       result = ::read(native(), data.data(), data.size());
-    }
+    } while (result == -1 && errno == EINTR);
 
     if (result == -1) {
       throw mfile_system_error{errno, "read failed"};
@@ -339,10 +454,10 @@ class file {
 
   [[nodiscard]]
   auto write_once(cbyte_view data) const -> std::size_t {
-    auto result = ::write(native(), data.data(), data.size());
-    while (result == -1 && errno == EINTR) {
+    ssize_t result = -1;
+    do {  // NOLINT
       result = ::write(native(), data.data(), data.size());
-    }
+    } while (result == -1 && errno == EINTR);
 
     if (result == -1) {
       throw mfile_system_error{errno, "write failed"};
@@ -370,6 +485,37 @@ class file {
   [[nodiscard]]
   auto size() const -> std::uint64_t {
     return static_cast<std::uint64_t>(stat().st_size);
+  }
+
+  void truncate(std::uint64_t size) const {
+    int result = -1;
+    do {  // NOLINT
+      result = ::ftruncate(native(), static_cast<off_t>(size));
+    } while (result == -1 && errno == EINTR);
+
+    if (result == -1) {
+      throw mfile_system_error{errno, "truncate failed"};
+    }
+  }
+
+  void sync() const {
+    if (::fsync(native()) == -1) {
+      throw mfile_system_error{errno, "sync failed"};
+    }
+  }
+
+  [[nodiscard]]
+  auto tell() const -> std::uint64_t {
+    auto result = ::lseek(native(), 0, SEEK_CUR);
+    if (result == -1) {
+      throw mfile_system_error{errno, "tell failed"};
+    }
+    return static_cast<std::uint64_t>(result);
+  }
+
+  [[nodiscard]]
+  auto empty() const -> bool {
+    return size() == 0;
   }
 
   constexpr void swap(file& other) noexcept {
