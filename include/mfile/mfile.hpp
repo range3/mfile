@@ -18,6 +18,69 @@ using range3::byte_span;
 using range3::byte_view;
 using range3::cbyte_view;
 
+// NOLINTNEXTLINE
+enum class errc : int {
+  success = 0,
+  end_of_file = 1,
+  insufficient_space = 2,
+};
+
+class error_category : public std::error_category {
+ public:
+  static auto instance() noexcept -> auto const& {
+    const static error_category instance;
+    return instance;
+  }
+
+  [[nodiscard]]
+  auto name() const noexcept -> const char* override {
+    return "mfile";
+  }
+
+  [[nodiscard]]
+  auto message(int ev) const -> std::string override {
+    switch (static_cast<errc>(ev)) {
+      case errc::success:
+        return "Success";
+      case errc::end_of_file:
+        return "End of file reached";
+      case errc::insufficient_space:
+        return "Insufficient space";
+      default:
+        return "Unknown mfile error";
+    }
+  }
+
+  [[nodiscard]]
+  auto message(errc ev) const -> std::string {
+    return message(static_cast<int>(ev));
+  }
+
+  [[nodiscard]]
+  auto default_error_condition(int ev) const noexcept
+      -> std::error_condition override {
+    switch (static_cast<errc>(ev)) {
+      case errc::end_of_file:
+        return std::make_error_condition(std::errc::no_message);
+      case errc::insufficient_space:
+        return std::make_error_condition(std::errc::no_space_on_device);
+      default:
+        return {ev, *this};
+    }
+  }
+
+ private:
+  error_category() = default;
+};
+
+inline auto make_error_code(errc e) noexcept -> std::error_code {
+  return {static_cast<int>(e), error_category::instance()};
+}
+
+inline auto make_error_condition(errc e) noexcept -> std::error_condition {
+  return {static_cast<int>(e), error_category::instance()};
+}
+
 class mfile_error : public std::system_error {
  public:
   explicit mfile_error(std::error_code ec, std::string_view what_arg)
@@ -28,6 +91,37 @@ class mfile_system_error : public mfile_error {
  public:
   explicit mfile_system_error(int val, std::string_view what_arg)
       : mfile_error{std::error_code{val, std::system_category()}, what_arg} {}
+};
+
+class end_of_file_error : public mfile_error {
+ public:
+  explicit end_of_file_error(std::size_t bytes_read, std::string_view what_arg)
+      : mfile_error{make_error_code(errc::end_of_file), what_arg},
+        bytes_read_{bytes_read} {}
+
+  [[nodiscard]]
+  auto bytes_read() const noexcept -> std::size_t {
+    return bytes_read_;
+  }
+
+ private:
+  std::size_t bytes_read_;
+};
+
+class insufficient_space_error : public mfile_error {
+ public:
+  explicit insufficient_space_error(std::size_t bytes_written,
+                                    std::string_view what_arg)
+      : mfile_error{make_error_code(errc::insufficient_space), what_arg},
+        bytes_written_{bytes_written} {}
+
+  [[nodiscard]]
+  auto bytes_written() const noexcept -> std::size_t {
+    return bytes_written_;
+  }
+
+ private:
+  std::size_t bytes_written_;
 };
 
 struct invalid_file_handle {
@@ -330,3 +424,8 @@ inline auto make_tmpfile(std::string_view prefix) -> file<tmpfile_handle> {
 }
 
 }  // namespace mfile
+
+namespace std {
+template <>
+struct is_error_code_enum<mfile::errc> : true_type {};
+}  // namespace std

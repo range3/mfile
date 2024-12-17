@@ -4,6 +4,7 @@
 # modernize-use-nodiscard: too aggressive, attribute is situationally useful
 Checks: >-
   *,
+  -abseil-*,
   -google-readability-todo,
   -altera-*,
   -fuchsia-*,
