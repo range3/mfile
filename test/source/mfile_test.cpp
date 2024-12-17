@@ -74,6 +74,6 @@ TEST_CASE("File basic operations", "[file]") {
 TEST_CASE("File error cases", "[file]") {
   SECTION("opening non-existent file throws") {
     REQUIRE_THROWS_AS(mfile::open("/non/existent/file", mfile::open_flags::r()),
-                      mfile::file_error);
+                      mfile::mfile_system_error);
   }
 }

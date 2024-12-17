@@ -18,12 +18,16 @@ using range3::byte_span;
 using range3::byte_view;
 using range3::cbyte_view;
 
-class file_error : public std::system_error {
+class mfile_error : public std::system_error {
  public:
-  explicit file_error(std::error_code ec, std::string_view what_arg)
+  explicit mfile_error(std::error_code ec, std::string_view what_arg)
       : std::system_error{ec, std::string{what_arg}} {}
-  explicit file_error(int val, std::string_view what_arg)
-      : file_error{std::error_code{val, std::system_category()}, what_arg} {}
+};
+
+class mfile_system_error : public mfile_error {
+ public:
+  explicit mfile_system_error(int val, std::string_view what_arg)
+      : mfile_error{std::error_code{val, std::system_category()}, what_arg} {}
 };
 
 struct invalid_file_handle {
@@ -234,7 +238,7 @@ class file {
     }
 
     if (result == -1) {
-      throw file_error{errno, "read failed"};
+      throw mfile_system_error{errno, "read failed"};
     }
     return static_cast<std::size_t>(result);
   }
@@ -247,7 +251,7 @@ class file {
     }
 
     if (result == -1) {
-      throw file_error{errno, "write failed"};
+      throw mfile_system_error{errno, "write failed"};
     }
     return static_cast<std::size_t>(result);
   }
@@ -255,7 +259,7 @@ class file {
   auto seek(std::int64_t offset, int whence) const -> std::uint64_t {
     auto result = ::lseek(native(), offset, whence);
     if (result == -1) {
-      throw file_error{errno, "seek failed"};
+      throw mfile_system_error{errno, "seek failed"};
     }
     return static_cast<std::uint64_t>(result);
   }
@@ -264,7 +268,7 @@ class file {
   auto stat() const -> struct stat {
     struct stat st {};
     if (::fstat(native(), &st) == -1) {
-      throw file_error{errno, "stat failed"};
+      throw mfile_system_error{errno, "stat failed"};
     }
     return st;
   }
@@ -308,7 +312,8 @@ inline auto open(const char* path,
                  mode_t mode = 0666) -> file<file_handle> {
   auto fd = ::open(path, flags.flags(), mode);  // NOLINT
   if (fd == -1) {
-    throw file_error{errno, std::format("Failed to open file: {}", path)};
+    throw mfile_system_error{errno,
+                             std::format("Failed to open file: {}", path)};
   }
   return file{file_handle{weak_file_handle{fd}}};
 }
@@ -318,7 +323,7 @@ inline auto make_tmpfile(std::string_view prefix) -> file<tmpfile_handle> {
   auto template_name = std::string{prefix} + "XXXXXX";
   auto fd = mkstemp(template_name.data());
   if (fd == -1) {
-    throw file_error{errno, "Failed to create tmpfile"};
+    throw mfile_system_error{errno, "Failed to create tmpfile"};
   }
   return file{tmpfile_handle{
       weak_file_handle{fd}, detail::tmpfile_deleter{std::move(template_name)}}};
