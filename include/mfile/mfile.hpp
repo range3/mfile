@@ -474,6 +474,15 @@ class file {
   }
 
   [[nodiscard]]
+  auto tell() const -> std::uint64_t {
+    auto result = ::lseek(native(), 0, SEEK_CUR);
+    if (result == -1) {
+      throw mfile_system_error{errno, "tell failed"};
+    }
+    return static_cast<std::uint64_t>(result);
+  }
+
+  [[nodiscard]]
   auto stat() const -> struct stat {
     struct stat st {};
     if (::fstat(native(), &st) == -1) {
@@ -485,6 +494,11 @@ class file {
   [[nodiscard]]
   auto size() const -> std::uint64_t {
     return static_cast<std::uint64_t>(stat().st_size);
+  }
+
+  [[nodiscard]]
+  auto empty() const -> bool {
+    return size() == 0;
   }
 
   void truncate(std::uint64_t size) const {
@@ -502,20 +516,6 @@ class file {
     if (::fsync(native()) == -1) {
       throw mfile_system_error{errno, "sync failed"};
     }
-  }
-
-  [[nodiscard]]
-  auto tell() const -> std::uint64_t {
-    auto result = ::lseek(native(), 0, SEEK_CUR);
-    if (result == -1) {
-      throw mfile_system_error{errno, "tell failed"};
-    }
-    return static_cast<std::uint64_t>(result);
-  }
-
-  [[nodiscard]]
-  auto empty() const -> bool {
-    return size() == 0;
   }
 
   constexpr void swap(file& other) noexcept {
