@@ -164,6 +164,11 @@ class weak_file_handle {
   }
 
   [[nodiscard]]
+  constexpr auto get() const noexcept -> pointer {
+    return *this;
+  }
+
+  [[nodiscard]]
   constexpr auto release() noexcept -> int {
     return std::exchange(fd_, invalid_file_handle::value);
   }
@@ -520,16 +525,17 @@ class file {
     swap(handle_, other.handle_);
   }
 
+  [[nodiscard]]
+  constexpr auto handle() const noexcept -> const handle_type& {
+    return handle_;
+  }
+
  private:
   handle_type handle_{};
 
   [[nodiscard]]
   constexpr auto native() const noexcept -> int {
-    if constexpr (weak_file_handle_like<Handle>) {
-      return handle_.native();
-    } else {
-      return handle_->native();
-    }
+    return handle_->native();
   }
 };
 
