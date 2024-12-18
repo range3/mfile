@@ -327,9 +327,6 @@ class file {
   constexpr explicit file(handle_type handle) noexcept
       : handle_{std::move(handle)} {}
 
-  // std::size_t read(byte_view data) const;
-  // std::size_t write(cbyte_view data) const;
-
   [[nodiscard]]
   auto read(byte_view data) const -> std::size_t {
     std::size_t bytes_read{};
