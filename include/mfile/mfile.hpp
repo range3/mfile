@@ -471,6 +471,77 @@ class file {
     return static_cast<std::size_t>(result);
   }
 
+  // positional I/O
+  // Low-level API
+  [[nodiscard]]
+  auto pread_once(byte_view data, std::uint64_t offset) const -> std::size_t {
+    ssize_t result = -1;
+    do {  // NOLINT
+      result = ::pread(native(), data.data(), data.size(),
+                       static_cast<off_t>(offset));
+    } while (result == -1 && errno == EINTR);
+
+    if (result == -1) {
+      throw mfile_system_error{errno, "pread failed"};
+    }
+    return static_cast<std::size_t>(result);
+  }
+
+  [[nodiscard]]
+  auto pwrite_once(cbyte_view data, std::uint64_t offset) const -> std::size_t {
+    ssize_t result = -1;
+    do {  // NOLINT
+      result = ::pwrite(native(), data.data(), data.size(),
+                        static_cast<off_t>(offset));
+    } while (result == -1 && errno == EINTR);
+
+    if (result == -1) {
+      throw mfile_system_error{errno, "pwrite failed"};
+    }
+    return static_cast<std::size_t>(result);
+  }
+
+  // Mid-level API
+  [[nodiscard]]
+  auto pread(byte_view data, std::uint64_t offset) const -> std::size_t {
+    std::size_t bytes_read{};
+
+    while (bytes_read < data.size()) {
+      auto result =
+          pread_once(data.subspan(bytes_read, data.size() - bytes_read),
+                     offset + bytes_read);
+
+      // EOF reached
+      if (result == 0) {
+        break;
+      }
+
+      bytes_read += result;
+    }
+
+    return bytes_read;
+  }
+
+  [[nodiscard]]
+  auto pwrite(cbyte_view data, std::uint64_t offset) const -> std::size_t {
+    std::size_t bytes_written{};
+
+    while (bytes_written < data.size()) {
+      auto result =
+          pwrite_once(data.subspan(bytes_written, data.size() - bytes_written),
+                      offset + bytes_written);
+
+      // No space left on device
+      if (result == 0) {
+        break;
+      }
+
+      bytes_written += result;
+    }
+
+    return bytes_written;
+  }
+
   auto seek(std::int64_t offset, int whence) const -> std::uint64_t {
     auto result = ::lseek(native(), offset, whence);
     if (result == -1) {
