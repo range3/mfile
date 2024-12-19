@@ -129,7 +129,7 @@ try {
 
 ## Requirements
 
-- range3::byte_view (https://github.com/range3/byte-view)
+- range3::byte_span (https://github.com/range3/byte-span)
 - C++20 compliant compiler
 - CMake 3.14+
 - Linux environment
