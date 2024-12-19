@@ -31,9 +31,8 @@ target_include_directories(
 
 target_compile_features(mfile_mfile INTERFACE cxx_std_20)
 
-find_package(fmt REQUIRED)
 find_package(ByteSpan REQUIRED)
-target_link_libraries(mfile_mfile INTERFACE fmt::fmt ByteSpan::ByteSpan)
+target_link_libraries(mfile_mfile INTERFACE ByteSpan::ByteSpan)
 
 # ---- Install rules ----
 
