@@ -1,3 +1,7 @@
+// mfile - A modern C++20 file handling library
+// (https://github.com/range3/mfile)
+// API design inspired by zpp_file (https://github.com/eyalz800/zpp_file)
+// Licensed under MIT License
 #pragma once
 
 #include <cstddef>

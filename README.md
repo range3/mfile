@@ -1,6 +1,10 @@
 # mfile
+A modern C++20 file I/O library.
 
-This is the mfile project.
+## Acknowledgments
+This project is inspired by zpp_file (https://github.com/eyalz800/zpp_file)
+Copyright (c) 2019 Eyal Z
+The original implementation has been heavily refactored and modernized with C++20 features.
 
 # Building and installing
 
@@ -10,10 +14,8 @@ See the [BUILDING](BUILDING.md) document.
 
 See the [CONTRIBUTING](CONTRIBUTING.md) document.
 
-# Licensing
+# mfile
 
-<!--
-Please go to https://choosealicense.com/licenses/ and choose a license that
-fits your needs. The recommended license for a project of this type is the
-Boost Software License 1.0.
--->
+
+# Licensing
+MIT License
