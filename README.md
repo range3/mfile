@@ -7,12 +7,12 @@ This project is inspired by zpp_file (https://github.com/eyalz800/zpp_file)
 Copyright (c) 2019 Eyal Z
 The original implementation has been heavily refactored and modernized with C++20 features.
 
-## Crown Jewel
+## Example Usage
 
 File I/O in just 4 lines:
 
 ```cpp
-auto file = mfile::open("data.txt", mfile::open_flags::w());  // Python's "w" mode
+auto file = mfile::open("data.txt", mfile::open_flags::wp());  // Python's "w+" mode
 file.write_exact("Hello, World!"sv);  // string_view implicitly converts to cbyte_view
 file.seek(0, SEEK_SET);
 auto content = file.read();  // reads entire content as std::vector<std::byte>
