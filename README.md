@@ -47,8 +47,8 @@ auto read_once(byte_view data) -> std::size_t;    // Reads up to data.size() byt
 auto write_once(cbyte_view data) -> std::size_t;  // Writes up to data.size() bytes
 
 // Mid-level API - Multiple read/write attempts until size
-auto read(byte_view data) -> std::size_t;    // Reads up to data.size() bytes
-auto write(cbyte_view data) -> std::size_t;  // Writes up to data.size() bytes
+auto read(byte_view data) -> std::size_t;    // Reads data.size() bytes if not EOF
+auto write(cbyte_view data) -> std::size_t;  // Writes data.size() bytes if not disk full
 
 // High-level API - Throws if exact size cannot be processed
 void read_exact(byte_view data);    // Throws if can't read data.size() bytes
@@ -56,7 +56,7 @@ void write_exact(cbyte_view data);  // Throws if can't write data.size() bytes
 
 // Helper APIs
 auto read(std::size_t size) -> std::vector<std::byte>;  // Read specified size
-auto read() -> std::vector<std::byte>;                  // Read entire file
+auto read() -> std::vector<std::byte>;                  // Read until EOF
 ```
 
 ## Temporary Files
