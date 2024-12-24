@@ -568,6 +568,52 @@ class file {
     return buffer;
   }
 
+  [[nodiscard]]
+  auto pread(std::uint64_t offset) const -> std::vector<std::byte> {
+    constexpr std::size_t init_buffer_size = 4096;
+    constexpr auto resize_factor_limit =
+        (std::numeric_limits<std::size_t>::max)() / 3 * 2;
+    auto buffer = std::vector<std::byte>();
+
+    auto file_size = size();
+    if (!file_size) {
+      buffer.resize(init_buffer_size);
+    } else {
+      if (offset >= file_size) {
+        return buffer;
+      }
+      auto remaining_size = file_size - offset;
+      if (remaining_size > (std::numeric_limits<std::size_t>::max)()) {
+        throw std::length_error{"File size too large"};
+      }
+      buffer.resize(static_cast<std::size_t>(remaining_size));
+    }
+
+    std::size_t bytes_read = 0;
+    while (true) {
+      auto read_span = byte_view{buffer}.subspan(bytes_read);
+      auto res = pread(read_span, offset + bytes_read);
+      bytes_read += res;
+
+      // EOF
+      if (res < read_span.size()) {
+        buffer.resize(bytes_read);
+        break;
+      }
+
+      std::size_t new_size{};
+      if (buffer.size() < resize_factor_limit) {
+        new_size = buffer.size() / 2 * 3;
+      } else {
+        new_size = std::numeric_limits<std::size_t>::max();
+      }
+      buffer.resize(new_size);
+    }
+
+    buffer.shrink_to_fit();
+    return buffer;
+  }
+
   auto seek(std::int64_t offset, int whence) const -> std::uint64_t {
     auto result = ::lseek(native(), offset, whence);
     if (result == -1) {

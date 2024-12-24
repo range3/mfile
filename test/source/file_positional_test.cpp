@@ -169,3 +169,57 @@ TEST_CASE("High-level positional I/O operations", "[file]") {
             == 0);
   }
 }
+
+// NOLINTNEXTLINE
+TEST_CASE("Positional read to EOF", "[file]") {
+  auto file = mfile::make_tmpfile("/tmp/mfile_test_");
+
+  SECTION("Read from empty file") {
+    auto data = file.pread(0);
+    REQUIRE(data.empty());
+  }
+
+  SECTION("Read entire file from offset") {
+    file.pwrite_exact("First"sv, 0);
+    file.pwrite_exact("Second"sv, 100);
+    file.pwrite_exact("Third"sv, 200);
+
+    auto data = file.pread(100);
+
+    REQUIRE(data.size() == 105);
+
+    REQUIRE(std::memcmp(data.data(), "Second", 6) == 0);
+
+    auto middle = range3::byte_view{data}.subspan(6, 94);
+    REQUIRE(std::all_of(middle.begin(), middle.end(),
+                        [](std::byte b) { return b == std::byte{0}; }));
+
+    REQUIRE(std::memcmp(range3::byte_view{data}.subspan(100).data(), "Third", 5)
+            == 0);
+  }
+
+  SECTION("Read from offset beyond EOF") {
+    file.write_exact("Test Data"sv);
+    auto data = file.pread(100);
+    REQUIRE(data.empty());
+  }
+
+  SECTION("Read large sparse file") {
+    constexpr auto offset = 1ULL << 20U;  // 1MB
+    constexpr auto write_data = "Large Sparse"sv;
+    file.pwrite_exact(write_data, offset);
+
+    auto half_mb = 1ULL << 19U;  // 512KB
+    auto data = file.pread(half_mb);
+
+    REQUIRE(data.size() == offset + write_data.size() - half_mb);
+
+    auto first_half = range3::byte_view{data}.first(half_mb);
+    REQUIRE(std::all_of(first_half.begin(), first_half.end(),
+                        [](std::byte b) { return b == std::byte{0}; }));
+
+    auto content = range3::byte_view{data}.subspan(half_mb);
+    REQUIRE(std::memcmp(content.data(), write_data.data(), write_data.size())
+            == 0);
+  }
+}
