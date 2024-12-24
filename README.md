@@ -23,9 +23,9 @@ auto content = file.read();  // reads entire content as std::vector<std::byte>
 - Python-like open modes
   ```cpp
   mfile::open_flags::r()   // read only
-  mfile::open_flags::w()   // write (create & truncate)
-  mfile::open_flags::a()   // append
-  mfile::open_flags::x()   // exclusive creation
+  mfile::open_flags::w()   // write only, create, truncate if exists
+  mfile::open_flags::a()   // write only, create, append if exists
+  mfile::open_flags::x()   // write only, create, fail if exists
   // Add 'p' suffix for read+write: rp, wp, ap, xp
   ```
 
@@ -141,7 +141,3 @@ See the [BUILDING](BUILDING.md) document.
 ## License
 
 MIT License
-
-## Acknowledgments
-
-This project is inspired by [zpp_file](https://github.com/eyalz800/zpp_file) and reimplemented with modern C++20 features.
