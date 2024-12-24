@@ -9,6 +9,7 @@
 #include <string_view>
 #include <vector>
 
+#include <byte_span/byte_span.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "mfile/mfile.hpp"
@@ -61,10 +62,13 @@ TEST_CASE("File positional operations", "[file]") {
     auto buf1 = std::array<std::byte, 32>{};
     auto buf2 = std::array<std::byte, 32>{};
 
-    REQUIRE(file.pread(buf1, 0) == data1.size());
+    REQUIRE(file.pread(buf1, 0) == buf1.size());
     REQUIRE(file.pread(buf2, 100) == data2.size());
 
     REQUIRE(std::memcmp(buf1.data(), data1.data(), data1.size()) == 0);
+    auto buf1_hole = range3::byte_view{buf1}.subspan(data1.size());
+    REQUIRE(std::all_of(buf1_hole.begin(), buf1_hole.end(),
+                        [](std::byte b) { return b == std::byte{0}; }));
     REQUIRE(std::memcmp(buf2.data(), data2.data(), data2.size()) == 0);
   }
 
