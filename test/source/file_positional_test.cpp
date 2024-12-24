@@ -135,3 +135,37 @@ TEST_CASE("File positional operations", "[file]") {
     REQUIRE(std::memcmp(buffer.data(), data.data(), data.size()) == 0);
   }
 }
+
+TEST_CASE("High-level positional I/O operations", "[file]") {
+  auto file = mfile::make_tmpfile("/tmp/mfile_test_");
+
+  SECTION("pread_exact and pwrite_exact basic operation") {
+    constexpr std::string_view test_data = "Hello, World!";
+    constexpr std::uint64_t offset = 100;
+
+    // Write test data
+    file.pwrite_exact(test_data, offset);
+
+    // Read back the exact amount
+    auto buffer = std::array<std::byte, 13>{};  // test_data.size() == 13
+    file.pread_exact(buffer, offset);
+
+    REQUIRE(std::memcmp(buffer.data(), test_data.data(), test_data.size())
+            == 0);
+  }
+
+  SECTION("pread_exact throws on EOF") {
+    auto buffer = std::array<std::byte, 64>{};
+    REQUIRE_THROWS_AS(file.pread_exact(buffer, 0), mfile::end_of_file_error);
+  }
+
+  SECTION("pread helper returns exact data") {
+    constexpr std::string_view test_data = "Test Data";
+    file.pwrite_exact(test_data, 50);
+
+    auto read_data = file.pread(test_data.size(), 50);
+    REQUIRE(read_data.size() == test_data.size());
+    REQUIRE(std::memcmp(read_data.data(), test_data.data(), test_data.size())
+            == 0);
+  }
+}

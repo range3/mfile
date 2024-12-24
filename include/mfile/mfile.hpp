@@ -542,6 +542,32 @@ class file {
     return bytes_written;
   }
 
+  // High-level API
+  void pread_exact(byte_view data, std::uint64_t offset) const {
+    auto bytes_read = pread(data, offset);
+    if (bytes_read != data.size()) {
+      throw end_of_file_error{bytes_read, "pread_exact failed"};
+    }
+  }
+
+  void pwrite_exact(cbyte_view data, std::uint64_t offset) const {
+    auto bytes_written = pwrite(data, offset);
+    if (bytes_written != data.size()) {
+      throw insufficient_space_error{bytes_written, "pwrite_exact failed"};
+    }
+  }
+
+  // convenience functions
+  [[nodiscard]]
+  // NOLINTNEXTLINE
+  auto pread(std::size_t size,
+             std::uint64_t offset) const -> std::vector<std::byte> {
+    std::vector<std::byte> buffer(size);
+    buffer.resize(pread(buffer, offset));
+    buffer.shrink_to_fit();
+    return buffer;
+  }
+
   auto seek(std::int64_t offset, int whence) const -> std::uint64_t {
     auto result = ::lseek(native(), offset, whence);
     if (result == -1) {
