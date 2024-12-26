@@ -68,9 +68,9 @@ class error_category : public std::error_category {
       -> std::error_condition override {
     switch (static_cast<errc>(ev)) {
       case errc::end_of_file:
-        return std::make_error_condition(std::errc::no_message);
+        return std::errc::no_message;
       case errc::insufficient_space:
-        return std::make_error_condition(std::errc::no_space_on_device);
+        return std::errc::no_space_on_device;
       default:
         return {ev, *this};
     }
