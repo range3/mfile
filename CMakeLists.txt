@@ -4,7 +4,7 @@ include(cmake/prelude.cmake)
 
 project(
     mfile
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Modern C++20 file I/O for Linux"
     HOMEPAGE_URL "https://github.com/range3/mfile"
     LANGUAGES NONE
